@@ -7782,7 +7782,7 @@ describe("#documents.unpublish", () => {
 
 describe("#documents.users", () => {
   it("should return all users when collection is not private", async () => {
-    const user = await buildUser();
+    const user = await buildAdmin();
     const collection = await buildCollection({
       teamId: user.teamId,
       userId: user.id,

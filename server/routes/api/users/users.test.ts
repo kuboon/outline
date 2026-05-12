@@ -1,7 +1,7 @@
 import { faker } from "@faker-js/faker";
 import { Plan, TeamPreference, UserRole } from "@shared/types";
 import ConfirmUpdateEmail from "@server/emails/templates/ConfirmUpdateEmail";
-import { Team, TeamDomain } from "@server/models";
+import { Team, TeamDomain, type User } from "@server/models";
 import {
   buildTeam,
   buildAdmin,
@@ -9,10 +9,27 @@ import {
   buildUser,
   buildInvite,
   buildViewer,
+  buildGroup,
+  buildGroupUser,
 } from "@server/test/factories";
 import { getTestServer } from "@server/test/support";
 
 const server = getTestServer();
+
+async function shareGroup(...users: User[]) {
+  const [owner] = users;
+  const group = await buildGroup({
+    teamId: owner.teamId,
+    userId: owner.id,
+  });
+  for (const user of users) {
+    await buildGroupUser({
+      teamId: user.teamId,
+      userId: user.id,
+      groupId: group.id,
+    });
+  }
+}
 
 beforeAll(() => {
   vi.useFakeTimers().setSystemTime(new Date("2018-01-02T00:00:00.000Z"));
@@ -123,6 +140,7 @@ describe("#users.list", () => {
       name: "Admin",
       teamId: user.teamId,
     });
+    await shareGroup(user, admin);
     const res = await server.post("/api/users.list", user, {
       body: {
         role: UserRole.Admin,
@@ -192,11 +210,12 @@ describe("#users.list", () => {
     const user = await buildUser({
       name: "Tester",
     });
-    await buildUser({
+    const invited = await buildUser({
       name: "Tester",
       teamId: user.teamId,
       lastActiveAt: null,
     });
+    await shareGroup(user, invited);
     const res = await server.post("/api/users.list", user, {
       body: {
         query: "test",
@@ -301,8 +320,9 @@ describe("#users.list", () => {
 
   it("should restrict viewer from viewing other user's email", async () => {
     const team = await buildTeam();
-    await buildUser({ teamId: team.id });
+    const other = await buildUser({ teamId: team.id });
     const viewer = await buildUser({ teamId: team.id, role: UserRole.Viewer });
+    await shareGroup(other, viewer);
     const res = await server.post("/api/users.list", viewer);
     const body = await res.json();
     expect(res.status).toEqual(200);
@@ -315,6 +335,7 @@ describe("#users.list", () => {
     const team = await buildTeam();
     const user = await buildUser({ teamId: team.id });
     const member = await buildUser({ teamId: team.id, role: UserRole.Member });
+    await shareGroup(user, member);
     const res = await server.post("/api/users.list", member);
     const body = await res.json();
     expect(res.status).toEqual(200);
@@ -325,8 +346,9 @@ describe("#users.list", () => {
 
   it("should restrict viewer from viewing other user's details", async () => {
     const team = await buildTeam();
-    await buildUser({ teamId: team.id });
+    const other = await buildUser({ teamId: team.id });
     const viewer = await buildUser({ teamId: team.id, role: UserRole.Viewer });
+    await shareGroup(other, viewer);
     const res = await server.post("/api/users.list", viewer);
     const body = await res.json();
     expect(res.status).toEqual(200);
@@ -343,8 +365,9 @@ describe("#users.list", () => {
 
   it("should restrict member from viewing other user's details", async () => {
     const team = await buildTeam();
-    await buildUser({ teamId: team.id });
+    const other = await buildUser({ teamId: team.id });
     const member = await buildUser({ teamId: team.id, role: UserRole.Member });
+    await shareGroup(other, member);
     const res = await server.post("/api/users.list", member);
     const body = await res.json();
     expect(res.status).toEqual(200);
