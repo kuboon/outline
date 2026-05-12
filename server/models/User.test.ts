@@ -10,6 +10,8 @@ import {
   buildAdmin,
   buildViewer,
   buildGuestUser,
+  buildGroup,
+  buildGroupUser,
 } from "@server/test/factories";
 import User from "./User";
 import UserMembership from "./UserMembership";
@@ -235,6 +237,44 @@ describe("user model", () => {
       const response = await user.collectionIds();
       expect(response.length).toEqual(1);
       expect(response[0]).toEqual(collection.id);
+    });
+  });
+
+  describe("visibleUserIds", () => {
+    it("should return null for admins", async () => {
+      const admin = await buildAdmin();
+      const response = await admin.visibleUserIds();
+      expect(response).toBeNull();
+    });
+
+    it("should return only self when the user is in no groups", async () => {
+      const team = await buildTeam();
+      const user = await buildUser({ teamId: team.id });
+      await buildUser({ teamId: team.id });
+      const response = await user.visibleUserIds();
+      expect(response).toEqual([user.id]);
+    });
+
+    it("should include users that share at least one group", async () => {
+      const team = await buildTeam();
+      const user = await buildUser({ teamId: team.id });
+      const peer = await buildUser({ teamId: team.id });
+      const stranger = await buildUser({ teamId: team.id });
+      const group = await buildGroup({ teamId: team.id });
+      await buildGroupUser({
+        teamId: team.id,
+        userId: user.id,
+        groupId: group.id,
+      });
+      await buildGroupUser({
+        teamId: team.id,
+        userId: peer.id,
+        groupId: group.id,
+      });
+      const response = await user.visibleUserIds();
+      expect(response).toEqual(expect.arrayContaining([user.id, peer.id]));
+      expect(response).not.toContain(stranger.id);
+      expect(response).toHaveLength(2);
     });
   });
 

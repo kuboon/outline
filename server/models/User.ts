@@ -468,6 +468,33 @@ class User extends ParanoidModel<
     (await this.groups(options)).map((g) => g.id);
 
   /**
+   * Returns the ids of users visible to this user under the group-based
+   * visibility rule: another user is visible only if they share at least one
+   * group, plus this user themselves. Admins are exempt and receive `null`,
+   * which callers should treat as "no restriction".
+   *
+   * @returns The visible user ids, or `null` when no restriction applies.
+   */
+  public visibleUserIds = async (): Promise<string[] | null> => {
+    if (this.isAdmin) {
+      return null;
+    }
+    const groupIds = await this.groupIds();
+    if (groupIds.length === 0) {
+      return [this.id];
+    }
+    const groupUsers = await GroupUser.findAll({
+      attributes: ["userId"],
+      where: {
+        groupId: { [Op.in]: groupIds },
+      },
+    });
+    return Array.from(
+      new Set<string>([this.id, ...groupUsers.map((gu) => gu.userId)])
+    );
+  };
+
+  /**
    * Returns the user's active collection ids. This includes collections the user
    * has access to through group memberships.
    *
