@@ -6,13 +6,16 @@ on:
     - cron: "0 3 * * *"
   workflow_dispatch:
 
+permissions:
+  contents: read
+  packages: write
+
 jobs:
   publish:
     uses: ./.github/workflows/docker-build.yml
     secrets: inherit
     with:
       ref: main
-      environment: dockerhub-nightly
       flavor: |
         latest=false
       tags: |
