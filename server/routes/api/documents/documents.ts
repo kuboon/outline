@@ -866,13 +866,15 @@ router.post(
       },
     };
 
-    const [collection, memberIds, collectionMemberIds] = await Promise.all([
-      document.$get("collection"),
-      Document.membershipUserIds(document.id),
-      document.collectionId
-        ? Collection.membershipUserIds(document.collectionId)
-        : [],
-    ]);
+    const [collection, memberIds, collectionMemberIds, visibleIds] =
+      await Promise.all([
+        document.$get("collection"),
+        Document.membershipUserIds(document.id),
+        document.collectionId
+          ? Collection.membershipUserIds(document.collectionId)
+          : [],
+        actor.visibleUserIds(),
+      ]);
 
     where = {
       ...where,
@@ -887,6 +889,7 @@ router.post(
               role: {
                 [Op.ne]: UserRole.Guest,
               },
+              ...(visibleIds ? { id: { [Op.in]: visibleIds } } : {}),
             }
           : {},
       ],
