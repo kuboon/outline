@@ -500,6 +500,7 @@ class User extends ParanoidModel<
       where: {
         groupId: { [Op.in]: groupIds },
       },
+      raw: true,
     });
     return Array.from(
       new Set<string>([this.id, ...groupUsers.map((gu) => gu.userId)])
