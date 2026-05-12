@@ -6,11 +6,12 @@ on:
       - "v*"
 
 env:
-  IMAGE_NAME: outlinewiki/outline
-  BASE_IMAGE_NAME: outlinewiki/outline-base
+  IMAGE_NAME: kuboon/outline
+  BASE_IMAGE_NAME: kuboon/outline-base
 
 jobs:
   build-arm:
+    if: false # Temporarily disable ARM build
     runs-on: ubicloud-standard-8-arm
     steps:
       - name: Checkout
@@ -90,10 +91,10 @@ jobs:
           retention-days: 1
 
   build-amd:
-    runs-on: ubicloud-standard-8
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -169,6 +170,7 @@ jobs:
           retention-days: 1
 
   merge:
+    if: false
     runs-on: ubicloud-standard-8
     needs:
       - build-amd
