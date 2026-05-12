@@ -27,6 +27,7 @@ router.post(
     const { query } = ctx.input.body;
     const { offset, limit } = ctx.state.pagination;
     const actor = ctx.state.auth.user;
+    const visibleIds = await actor.visibleUserIds();
 
     const [documents, users, groups, collections] = await Promise.all([
       SearchProviderManager.getProvider().searchTitlesForUser(actor, {
@@ -41,6 +42,7 @@ router.post(
           suspendedAt: {
             [Op.eq]: null,
           },
+          ...(visibleIds ? { id: visibleIds } : {}),
           [Op.and]: query
             ? {
                 [Op.or]: [

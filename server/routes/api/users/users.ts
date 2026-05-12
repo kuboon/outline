@@ -138,10 +138,22 @@ router.post(
       };
     }
 
-    if (ids) {
+    const visibleIds = await actor.visibleUserIds();
+
+    if (ids && visibleIds) {
+      where = {
+        ...where,
+        id: ids.filter((id) => visibleIds.includes(id)),
+      };
+    } else if (ids) {
       where = {
         ...where,
         id: ids,
+      };
+    } else if (visibleIds) {
+      where = {
+        ...where,
+        id: visibleIds,
       };
     }
 
