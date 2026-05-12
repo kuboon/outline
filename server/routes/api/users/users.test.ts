@@ -1,7 +1,8 @@
 import { faker } from "@faker-js/faker";
 import { TeamPreference, UserRole } from "@shared/types";
 import ConfirmUpdateEmail from "@server/emails/templates/ConfirmUpdateEmail";
-import { TeamDomain, User } from "@server/models";
+import { TeamDomain } from "@server/models";
+import type User from "@server/models/User";
 import {
   buildTeam,
   buildAdmin,
