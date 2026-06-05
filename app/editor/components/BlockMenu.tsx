@@ -1,10 +1,13 @@
-import { DocumentIcon, ShapesIcon } from "outline-icons";
+import { CommentIcon, DocumentIcon, ShapesIcon } from "outline-icons";
 import { cloneDeep } from "es-toolkit/compat";
 import { observer } from "mobx-react";
 import { useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
+import { v4 as uuidv4 } from "uuid";
 import Icon from "@shared/components/Icon";
 import type { MenuItem } from "@shared/editor/types";
+import { MentionType } from "@shared/types";
+import { getCurrentTimeAsString } from "@shared/utils/date";
 import { ProsemirrorHelper } from "@shared/utils/ProsemirrorHelper";
 import { TextHelper } from "@shared/utils/TextHelper";
 import useCurrentUser from "~/hooks/useCurrentUser";
@@ -103,6 +106,65 @@ function useTemplateMenuItem(): MenuItem | undefined {
   }, [user, templatesStore.orderedData, collectionId, editor, t]);
 }
 
+/**
+ * Hook that returns a menu item that inserts a bullet point prefixed with the
+ * current time and a self-mention. Useful for jotting down quick standup-style
+ * notes inline in a document.
+ */
+function useCommentMenuItem(): MenuItem | undefined {
+  const { t } = useTranslation();
+  const user = useCurrentUser({ rejectOnEmpty: false });
+  const editor = useEditor();
+
+  return useMemo(() => {
+    if (!user) {
+      return undefined;
+    }
+
+    return {
+      name: "noop",
+      title: t("Comment"),
+      icon: <CommentIcon />,
+      keywords: "comment note timestamp mention",
+      onClick: () => {
+        editor.insertContent({
+          type: "bullet_list",
+          content: [
+            {
+              type: "list_item",
+              content: [
+                {
+                  type: "paragraph",
+                  content: [
+                    {
+                      type: "text",
+                      text: `${getCurrentTimeAsString()} `,
+                    },
+                    {
+                      type: "mention",
+                      attrs: {
+                        type: MentionType.User,
+                        label: user.name,
+                        modelId: user.id,
+                        actorId: user.id,
+                        id: uuidv4(),
+                      },
+                    },
+                    {
+                      type: "text",
+                      text: " ",
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        });
+      },
+    } satisfies MenuItem;
+  }, [user, editor, t]);
+}
+
 type Props = Omit<SuggestionsMenuProps, "renderMenuItem" | "items"> &
   Required<Pick<SuggestionsMenuProps, "embeds">>;
 
@@ -110,16 +172,26 @@ function BlockMenu(props: Props) {
   const { t } = useTranslation();
   const { elementRef } = useEditor();
   const templateMenuItem = useTemplateMenuItem();
+  const commentMenuItem = useCommentMenuItem();
 
   const items = useMemo(() => {
     const baseItems = getMenuItems(t, elementRef);
+    const trailingItems: MenuItem[] = [];
 
-    if (!templateMenuItem) {
+    if (commentMenuItem) {
+      trailingItems.push(commentMenuItem);
+    }
+
+    if (templateMenuItem) {
+      trailingItems.push(templateMenuItem);
+    }
+
+    if (trailingItems.length === 0) {
       return baseItems;
     }
 
-    return [...baseItems, { name: "separator" } as MenuItem, templateMenuItem];
-  }, [t, elementRef, templateMenuItem]);
+    return [...baseItems, { name: "separator" } as MenuItem, ...trailingItems];
+  }, [t, elementRef, commentMenuItem, templateMenuItem]);
 
   const renderMenuItem = useCallback(
     (item, _index, options) => (
