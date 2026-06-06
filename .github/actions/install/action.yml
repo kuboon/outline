@@ -7,13 +7,25 @@ runs:
       shell: bash
       run: |
         corepack enable
-        # actions/setup-node@v5 with cache: "yarn" probes `yarn --version` to
-        # resolve the cache folder. Corepack downloads the package manager
-        # lazily on first invocation, which sometimes races (or 403s) that
-        # probe. Pre-install the version pinned by `packageManager` so the
-        # probe always finds a working binary.
-        PACKAGE_MANAGER=$(node -p "require('./package.json').packageManager")
-        corepack prepare "$PACKAGE_MANAGER" --activate
+        # actions/setup-node@v5 with cache: "yarn" probes `yarn --version`
+        # to resolve the cache folder. The corepack shim downloads the
+        # pinned yarn lazily on first invocation and occasionally returns
+        # an empty version (yarn registry 403s, slow downloads, etc.),
+        # which makes the probe fail with:
+        #   Could not get yarn cache folder path for undefined
+        # Warm the shim with retries so the probe always sees a real
+        # version string.
+        for i in 1 2 3 4 5; do
+          v=$(yarn --version 2>/dev/null || true)
+          if [ -n "$v" ]; then
+            echo "yarn version: $v"
+            exit 0
+          fi
+          echo "Attempt $i: yarn --version returned blank, retrying..." >&2
+          sleep 2
+        done
+        echo "::error::yarn --version returned blank after 5 attempts" >&2
+        exit 1
     - name: Use Node.js 24.x
       uses: actions/setup-node@v5
       with:
