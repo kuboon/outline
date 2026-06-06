@@ -5,7 +5,15 @@ runs:
   steps:
     - name: Enable Corepack
       shell: bash
-      run: corepack enable
+      run: |
+        corepack enable
+        # actions/setup-node@v5 with cache: "yarn" probes `yarn --version` to
+        # resolve the cache folder. Corepack downloads the package manager
+        # lazily on first invocation, which sometimes races (or 403s) that
+        # probe. Pre-install the version pinned by `packageManager` so the
+        # probe always finds a working binary.
+        PACKAGE_MANAGER=$(node -p "require('./package.json').packageManager")
+        corepack prepare "$PACKAGE_MANAGER" --activate
     - name: Use Node.js 24.x
       uses: actions/setup-node@v5
       with:
