@@ -1,5 +1,5 @@
 import { t } from "i18next";
-import type { Token } from "markdown-it";
+import type Token from "markdown-it/lib/token.mjs";
 import { InputRule } from "prosemirror-inputrules";
 import type {
   Node as ProsemirrorNode,
@@ -456,6 +456,7 @@ export default class Image extends SimpleImage {
 
   keys(): Record<string, Command> {
     return {
+      ...super.keys(),
       "Mod-Alt-m": addComment({ userId: this.options.userId }),
     };
   }

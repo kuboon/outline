@@ -17,6 +17,7 @@ import {
   getTeamFromContext,
   getClientFromOAuthState,
   getUserFromOAuthState,
+  startOAuthFlow,
 } from "@server/utils/passport";
 import config from "../../plugin.json";
 import env from "../env";
@@ -101,6 +102,18 @@ if (env.AZURE_CLIENT_ID && env.AZURE_CLIENT_SECRET) {
         const user =
           context.state?.auth?.user ?? (await getUserFromOAuthState(context));
 
+        // Microsoft's email claim is mutable, only trust it when a verification
+        // claim confirms it — xms_edov for workforce tenants, or the standard
+        // email_verified claim in External ID / OIDC scenarios.
+        // https://learn.microsoft.com/en-us/entra/identity-platform/reference-claims-customization
+        const verificationClaims = [profile.xms_edov, profile.email_verified];
+        const presentClaims = verificationClaims.filter(
+          (claim) => claim !== undefined
+        );
+        const emailVerified = presentClaims.length
+          ? presentClaims.some((claim) => claim === true || claim === "true")
+          : undefined;
+
         const domain = parseEmail(email).domain;
         const subdomain = slugifyDomain(domain);
 
@@ -120,6 +133,7 @@ if (env.AZURE_CLIENT_ID && env.AZURE_CLIENT_SECRET) {
           user: {
             name: profile.name,
             email,
+            emailVerified,
             avatarUrl: profile.picture,
           },
           authenticationProvider: {
@@ -143,6 +157,7 @@ if (env.AZURE_CLIENT_ID && env.AZURE_CLIENT_SECRET) {
   passport.use(strategy);
   router.get(
     config.id,
+    startOAuthFlow,
     passport.authenticate(config.id, { prompt: "select_account" })
   );
   router.get(`${config.id}.callback`, passportMiddleware(config.id));

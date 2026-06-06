@@ -404,15 +404,14 @@ const diffStyle = (props: Props) => css`
   }
 `;
 
-const findAndReplaceStyle = () => css`
+const findAndReplaceStyle = (props: Props) => css`
   & ::highlight(search-results) {
     background-color: rgba(255, 213, 0, 0.25);
-    color: inherit;
   }
 
   & ::highlight(search-results-current) {
     background-color: rgba(255, 213, 0, 0.75);
-    color: inherit;
+    color: ${props.theme.textHighlightForeground};
   }
 
   .find-result:not(:has(.mention)),
@@ -424,6 +423,7 @@ const findAndReplaceStyle = () => css`
   .find-result.current-result .mention {
     background: rgba(255, 213, 0, 0.75);
     animation: ${pulse("rgba(255, 213, 0, 0.75)")} 150ms 1;
+    color: ${props.theme.textHighlightForeground};
   }
 `;
 
@@ -2121,6 +2121,10 @@ table {
     /* fixes Firefox background color painting over border:
       * https://bugzilla.mozilla.org/show_bug.cgi?id=688556 */
     background-clip: padding-box;
+
+    @media print {
+      box-shadow: none;
+    }
   }
 
   .${EditorStyleHelper.tableAddRow},
@@ -2433,6 +2437,11 @@ table {
   > .${EditorStyleHelper.tableScrollable} > table > tbody > tr:first-child {
     position: relative;
     z-index: 2;
+
+    > th {
+      // Safari requires the header cell to have raised z-index too
+      z-index: 2;
+    }
   }
 
   > .${EditorStyleHelper.tableScrollable} > table > tbody > tr:first-child > th {
@@ -2646,6 +2655,12 @@ li > .${EditorStyleHelper.toggleBlock} {
 
 .${EditorStyleHelper.toggleBlock} {
   display: flex;
+
+  /* When a toggle block is inside a collapsed heading it receives the
+     folded-content decoration; ensure it stays hidden despite display: flex. */
+  &.folded-content {
+    display: none;
+  }
 
   &:focus-within {
     transition-delay: 0.1s;

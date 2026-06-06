@@ -76,9 +76,15 @@ export const CollectionsImportSchema = BaseSchema.extend({
       .nullish()
       .transform((val) => (isUndefined(val) ? null : val)),
     attachmentId: z.uuid(),
+    /**
+     * The format of the upload. Both `json` and `outline-markdown` are
+     * routed through the API-import pipeline (see `imports.create`); the
+     * `format` field is retained for backwards compatibility with API
+     * clients calling this endpoint directly.
+     */
     format: z
-      .enum(FileOperationFormat)
-      .prefault(FileOperationFormat.MarkdownZip),
+      .enum([FileOperationFormat.JSON, FileOperationFormat.MarkdownZip])
+      .prefault(FileOperationFormat.JSON),
   }),
 });
 

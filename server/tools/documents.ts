@@ -1,14 +1,20 @@
 import { z } from "zod";
 import { type McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { type CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import documentCreator from "@server/commands/documentCreator";
+import documentCreator, {
+  authorizeDocumentCreate,
+  authorizeDocumentPublish,
+} from "@server/commands/documentCreator";
 import documentMover from "@server/commands/documentMover";
 import documentUpdater from "@server/commands/documentUpdater";
 import { Op } from "sequelize";
 import { Collection, Document } from "@server/models";
 import { sequelize } from "@server/storage/database";
-import { authorize } from "@server/policies";
-import { presentDocument, presentNavigationNode } from "@server/presenters";
+import { authorize, can } from "@server/policies";
+import {
+  presentDocument as presentDocumentBase,
+  presentNavigationNode,
+} from "@server/presenters";
 import AuthenticationHelper from "@shared/helpers/AuthenticationHelper";
 import { UrlHelper } from "@shared/utils/UrlHelper";
 import {
@@ -25,6 +31,26 @@ import {
 } from "./util";
 import { TextEditMode } from "@shared/types";
 import SearchProviderManager from "@server/utils/SearchProviderManager";
+
+/**
+ * Presents a document for a tool response. Adds MCP-specific fields
+ * on top of the standard document presenter.
+ *
+ * @param document - the document to present.
+ * @param options - optional presenter options
+ * @returns the presented document object.
+ */
+export function presentDocument(
+  document: Document,
+  options: {
+    includeData?: boolean;
+    includeText?: boolean;
+    includeUpdatedAt?: boolean;
+    includeCommentCount?: boolean;
+  } = {}
+) {
+  return presentDocumentBase(undefined, document, options);
+}
 
 /**
  * Registers document-related MCP tools on the given server, filtered by
@@ -101,6 +127,9 @@ export function documentTools(server: McpServer, scopes: string[]) {
                 exactMatch = await Document.findByPk(query, {
                   userId: user.id,
                 });
+                if (exactMatch && !can(user, "read", exactMatch)) {
+                  exactMatch = null;
+                }
                 if (
                   exactMatch &&
                   collectionId &&
@@ -132,7 +161,7 @@ export function documentTools(server: McpServer, scopes: string[]) {
                 filteredResults.map(async (result) => {
                   const doc = pathToUrl(
                     user.team,
-                    await presentDocument(undefined, result.document, {
+                    await presentDocument(result.document, {
                       includeData: false,
                       includeText: false,
                     })
@@ -153,7 +182,7 @@ export function documentTools(server: McpServer, scopes: string[]) {
               if (exactMatch) {
                 const doc = pathToUrl(
                   user.team,
-                  await presentDocument(undefined, exactMatch, {
+                  await presentDocument(exactMatch, {
                     includeData: false,
                     includeText: false,
                   })
@@ -196,7 +225,7 @@ export function documentTools(server: McpServer, scopes: string[]) {
               documents.map(async (document) => {
                 const doc = pathToUrl(
                   user.team,
-                  await presentDocument(undefined, document, {
+                  await presentDocument(document, {
                     includeData: false,
                     includeText: false,
                   })
@@ -300,6 +329,12 @@ export function documentTools(server: McpServer, scopes: string[]) {
             .describe(
               "Whether to publish the document. Defaults to true. Set to false to create as a draft."
             ),
+          fullWidth: z
+            .boolean()
+            .optional()
+            .describe(
+              "Whether the document should occupy full width of the screen. Defaults to false."
+            ),
         },
       },
       withTracing("create_document", async (input, context) => {
@@ -307,30 +342,11 @@ export function documentTools(server: McpServer, scopes: string[]) {
           const { collectionId, parentDocumentId } = input;
           const ctx = buildAPIContext(context);
           const { user } = ctx.state.auth;
-          let collection;
-          let parentDocument;
 
-          if (parentDocumentId) {
-            parentDocument = await Document.findByPk(parentDocumentId, {
-              userId: user.id,
-            });
-
-            if (parentDocument?.collectionId) {
-              collection = await Collection.findByPk(
-                parentDocument.collectionId,
-                { userId: user.id }
-              );
-            }
-
-            authorize(user, "createChildDocument", parentDocument, {
-              collection,
-            });
-          } else if (collectionId) {
-            collection = await Collection.findByPk(collectionId, {
-              userId: user.id,
-            });
-            authorize(user, "createDocument", collection);
-          }
+          const { collection } = await authorizeDocumentCreate(ctx, {
+            collectionId,
+            parentDocumentId,
+          });
 
           const document = await documentCreator(ctx, {
             title: input.title,
@@ -340,10 +356,11 @@ export function documentTools(server: McpServer, scopes: string[]) {
             parentDocumentId: parentDocumentId,
             publish: input.publish !== false,
             collectionId: collection?.id,
+            fullWidth: input.fullWidth,
           });
 
           const [{ text, ...attributes }, breadcrumb] = await Promise.all([
-            presentDocument(undefined, document, {
+            presentDocument(document, {
               includeData: false,
               includeText: true,
               includeUpdatedAt: true,
@@ -479,7 +496,7 @@ export function documentTools(server: McpServer, scopes: string[]) {
               documents.map(async (document) => {
                 const doc = pathToUrl(
                   user.team,
-                  await presentDocument(undefined, document, {
+                  await presentDocument(document, {
                     includeData: false,
                     includeText: false,
                   })
@@ -556,6 +573,12 @@ export function documentTools(server: McpServer, scopes: string[]) {
             .describe(
               "Set to true to publish a draft document, or false to convert a published document back to a draft."
             ),
+          fullWidth: z
+            .boolean()
+            .optional()
+            .describe(
+              "Whether the document should occupy full width of the screen."
+            ),
         },
       },
       withTracing("update_document", async (input, context) => {
@@ -580,6 +603,10 @@ export function documentTools(server: McpServer, scopes: string[]) {
           } else {
             authorize(user, "update", document);
 
+            if (input.publish) {
+              await authorizeDocumentPublish(ctx, document, input.collectionId);
+            }
+
             updated = await documentUpdater(ctx, {
               document,
               ...input,
@@ -587,7 +614,7 @@ export function documentTools(server: McpServer, scopes: string[]) {
           }
 
           const [{ text, ...attributes }, breadcrumb] = await Promise.all([
-            presentDocument(undefined, updated, {
+            presentDocument(updated, {
               includeData: false,
               includeText: true,
               includeUpdatedAt: true,

@@ -11,7 +11,7 @@ import nodeFetch, {
 import { getProxyForUrl } from "proxy-from-env";
 import tunnelAgent, { type TunnelAgent } from "tunnel-agent";
 import env from "@server/env";
-import { InternalError } from "@server/errors";
+import { InvalidRequestError } from "@server/errors";
 import Logger from "@server/logging/Logger";
 import { capitalize } from "es-toolkit/compat";
 import {
@@ -158,12 +158,14 @@ export default async function fetch(
       );
     }
 
+    const headers = new Headers({ "User-Agent": outlineUserAgent });
+    new Headers(rest?.headers).forEach((value, key) => {
+      headers.set(key, value);
+    });
+
     const response = await nodeFetch(url, {
       ...rest,
-      headers: {
-        "User-Agent": outlineUserAgent,
-        ...rest?.headers,
-      },
+      headers,
       signal,
       agent: buildAgent(url, { signal, allowPrivateIPAddress }),
     });
@@ -182,9 +184,11 @@ export default async function fetch(
     if (err.name === "AbortError") {
       throw new Error(`Request timeout after ${timeout}ms`);
     }
-    if (!env.isCloudHosted && err.message?.startsWith("DNS lookup")) {
-      throw InternalError(
-        `${err.message}\n\nTo allow this request, add the IP address or CIDR range to the ALLOWED_PRIVATE_IP_ADDRESSES environment variable.`
+    if (err.message?.startsWith("DNS lookup")) {
+      throw InvalidRequestError(
+        env.isCloudHosted
+          ? err.message
+          : `${err.message}\n\nTo allow this request, add the IP address or CIDR range to the ALLOWED_PRIVATE_IP_ADDRESSES environment variable.`
       );
     }
     throw err;
