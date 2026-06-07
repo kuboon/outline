@@ -9,6 +9,19 @@ COPY ./patches ./patches
 RUN apt-get update && apt-get install -y cmake
 ENV NODE_OPTIONS="--max-old-space-size=24000"
 
+# Node 24.16.0's bundled corepack predates the yarn 4.x signing key
+# rotation, so its integrity check silently rejects the downloaded yarn
+# binary and the shim returns blank. Install a newer corepack pinned by
+# tarball SRI before enabling.
+ARG COREPACK_VERSION=0.35.0
+ARG COREPACK_INTEGRITY=sha512-9BuIGHDFE7Zieor1CeRsvt7X7AJFEuJ6OnbSbsVprq83ChDFoBh1wP98NeUS9FT3ZwlzFllPElXcz/OiDf0YGw==
+RUN set -eux; \
+    curl -fsSL "https://registry.npmjs.org/corepack/-/corepack-${COREPACK_VERSION}.tgz" -o /tmp/corepack.tgz; \
+    ACTUAL="sha512-$(openssl dgst -sha512 -binary /tmp/corepack.tgz | openssl base64 -A)"; \
+    [ "$ACTUAL" = "$COREPACK_INTEGRITY" ] || { echo "corepack ${COREPACK_VERSION} integrity mismatch (expected ${COREPACK_INTEGRITY}, got ${ACTUAL})" >&2; exit 1; }; \
+    npm install -g --force /tmp/corepack.tgz; \
+    rm /tmp/corepack.tgz; \
+    corepack --version
 RUN corepack enable
 RUN yarn install --immutable --network-timeout 1000000 && \
   yarn cache clean
