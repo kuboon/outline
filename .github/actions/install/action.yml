@@ -13,24 +13,10 @@ runs:
         #   Could not get yarn cache folder path for undefined
         COREPACK_INTEGRITY_KEYS: "0"
       run: |
-        set -x
         corepack enable
-        ls -la "$(which yarn)" || true
         # Warm the corepack shim so setup-node's cache-folder probe sees a
-        # valid version. Capture stderr to surface the actual error if it
-        # still fails.
-        for i in 1 2 3 4 5; do
-          OUTPUT=$(yarn --version 2>&1)
-          STATUS=$?
-          if [ $STATUS -eq 0 ] && [ -n "$OUTPUT" ]; then
-            echo "yarn version: $OUTPUT"
-            exit 0
-          fi
-          echo "Attempt $i: yarn --version exited $STATUS, output: '$OUTPUT'" >&2
-          sleep 2
-        done
-        echo "::error::yarn shim failed to produce a version" >&2
-        exit 1
+        # valid version.
+        yarn --version
     - name: Use Node.js 24.x
       uses: actions/setup-node@v5
       with:
