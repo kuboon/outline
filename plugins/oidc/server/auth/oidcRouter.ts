@@ -22,6 +22,7 @@ import {
   getClientFromOAuthState,
   getUserFromOAuthState,
   request,
+  startOAuthFlow,
 } from "@server/utils/passport";
 import config from "../../plugin.json";
 import env from "../env";
@@ -104,6 +105,7 @@ export function createOIDCRouter(
 
               return decoded as {
                 email?: string;
+                email_verified?: boolean | string;
                 preferred_username?: string;
                 sub?: string;
               };
@@ -120,6 +122,15 @@ export function createOIDCRouter(
               `An email field was not returned in the profile or id_token parameter, but is required.`
             );
           }
+
+          // The email_verified claim is part of the OIDC standard claims.
+          // https://openid.net/specs/openid-connect-core-1_0.html#StandardClaims
+          const emailVerifiedClaim =
+            profile.email_verified ?? token.email_verified;
+          const emailVerified =
+            emailVerifiedClaim === undefined
+              ? undefined
+              : emailVerifiedClaim === true || emailVerifiedClaim === "true";
 
           const team = await getTeamFromContext(context);
           const client = getClientFromOAuthState(context);
@@ -205,6 +216,7 @@ export function createOIDCRouter(
             user: {
               name,
               email,
+              emailVerified,
               avatarUrl,
             },
             authenticationProvider: {
@@ -227,7 +239,7 @@ export function createOIDCRouter(
     )
   );
 
-  router.get(config.id, passport.authenticate(config.id));
+  router.get(config.id, startOAuthFlow, passport.authenticate(config.id));
   router.get(`${config.id}.callback`, passportMiddleware(config.id));
   router.post(`${config.id}.callback`, passportMiddleware(config.id));
 }

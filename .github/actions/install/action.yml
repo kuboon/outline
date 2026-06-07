@@ -3,9 +3,36 @@ description: Set up Node.js, Corepack, and install dependencies with yarn cache
 runs:
   using: composite
   steps:
+    - name: Install pinned Corepack
+      shell: bash
+      env:
+        # Node 24.16.0 ships with a corepack whose hardcoded trusted-keys
+        # list predates the yarn 4.x signing key rotation, so its
+        # integrity check rejects the cached yarn binary and the shim
+        # ends up returning blank. Replace it with a known corepack
+        # release whose trusted-keys list covers current yarn signatures.
+        # Pinned by tarball SRI to keep the supply-chain trust explicit.
+        COREPACK_VERSION: "0.35.0"
+        COREPACK_INTEGRITY: "sha512-9BuIGHDFE7Zieor1CeRsvt7X7AJFEuJ6OnbSbsVprq83ChDFoBh1wP98NeUS9FT3ZwlzFllPElXcz/OiDf0YGw=="
+      run: |
+        set -euo pipefail
+        TARBALL="/tmp/corepack-${COREPACK_VERSION}.tgz"
+        curl -fsSL "https://registry.npmjs.org/corepack/-/corepack-${COREPACK_VERSION}.tgz" -o "$TARBALL"
+        ACTUAL="sha512-$(openssl dgst -sha512 -binary "$TARBALL" | openssl base64 -A)"
+        if [ "$ACTUAL" != "$COREPACK_INTEGRITY" ]; then
+          echo "::error::corepack ${COREPACK_VERSION} integrity mismatch (expected ${COREPACK_INTEGRITY}, got ${ACTUAL})"
+          exit 1
+        fi
+        npm install -g --force "$TARBALL"
+        rm "$TARBALL"
+        corepack --version
     - name: Enable Corepack
       shell: bash
-      run: corepack enable
+      run: |
+        corepack enable
+        # Warm the corepack shim so setup-node's cache-folder probe sees a
+        # valid version.
+        yarn --version
     - name: Use Node.js 24.x
       uses: actions/setup-node@v5
       with:

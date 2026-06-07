@@ -1,6 +1,6 @@
 import copy from "copy-to-clipboard";
 import { t } from "i18next";
-import type { Token } from "markdown-it";
+import type Token from "markdown-it/lib/token.mjs";
 import { textblockTypeInputRule } from "prosemirror-inputrules";
 import type {
   NodeSpec,
@@ -244,6 +244,29 @@ export default class CodeFence extends Node<CodeFenceOptions> {
           ...attrs,
         });
       },
+      expandCodeBlockAt:
+        (pos: number): Command =>
+        (state, dispatch) => {
+          const $pos = state.doc.resolve(pos);
+          const codeBlock = findParentNodeClosestToPos($pos, isCode);
+          if (!codeBlock) {
+            return false;
+          }
+
+          const collapseState = CodeFence.collapseKey.getState(state);
+          if (!collapseState?.collapsedBlocks.has(codeBlock.pos)) {
+            return false;
+          }
+
+          if (dispatch) {
+            dispatch(
+              state.tr
+                .setMeta(CodeFence.collapseKey, { expand: codeBlock.pos })
+                .setMeta("addToHistory", false)
+            );
+          }
+          return true;
+        },
       toggleCodeBlockCollapse: (): Command => (state, dispatch) => {
         const codeBlock = findParentNode(isCode)(state.selection);
         if (!codeBlock) {
@@ -457,7 +480,7 @@ export default class CodeFence extends Node<CodeFenceOptions> {
       // Click handler for toggle button + auto-expand on focus
       new Plugin({
         key: new PluginKey("collapse-toggle"),
-        appendTransaction: (transactions, _oldState, newState) => {
+        appendTransaction: (transactions, oldState, newState) => {
           const hasCollapseMeta = transactions.some((tr) =>
             tr.getMeta(collapseKey)
           );
@@ -472,6 +495,14 @@ export default class CodeFence extends Node<CodeFenceOptions> {
             !codeBlock ||
             !collapseState?.collapsedBlocks.has(codeBlock.pos)
           ) {
+            return null;
+          }
+
+          // Only auto-expand when the selection moved INTO the block. If the
+          // selection was already inside this block (e.g. after the user just
+          // clicked Collapse while the cursor was inside), don't re-expand.
+          const oldCodeBlock = findParentNode(isCode)(oldState.selection);
+          if (oldCodeBlock?.pos === codeBlock.pos) {
             return null;
           }
 

@@ -177,6 +177,7 @@ export default abstract class BaseEmail<
         text: this.renderAsText(data),
         headCSS: this.headCSS?.(data),
         unsubscribeUrl: this.unsubscribeUrl?.(data),
+        tags: { category: this.category, template: templateName },
       });
       Metrics.increment("email.sent", {
         templateName,
@@ -334,7 +335,7 @@ export default abstract class BaseEmail<
       await ProsemirrorHelper.processMentions(node)
     );
 
-    let content = ProsemirrorHelper.toHTML(processedNode, {
+    let content = await ProsemirrorHelper.toHTML(processedNode, {
       centered: false,
     });
 
