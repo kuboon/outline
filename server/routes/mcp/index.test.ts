@@ -89,7 +89,9 @@ describe("POST /mcp/", () => {
 
       expect(result).toBeDefined();
       expect(result?.capabilities).toBeDefined();
-      expect(result?.serverInfo?.name).toEqual("outline");
+      // Includes the deployment's hostname so that clients connecting to
+      // multiple Outline instances can tell them apart.
+      expect(result?.serverInfo?.name).toEqual("outline-localhost");
     });
 
     it("should return 202 for the notifications/initialized lifecycle message", async () => {

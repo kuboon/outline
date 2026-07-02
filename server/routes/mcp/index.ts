@@ -6,6 +6,7 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
 import { ErrorCode } from "@modelcontextprotocol/sdk/types.js";
 import { TeamPreference } from "@shared/types";
+import env from "@server/env";
 import { NotFoundError } from "@server/errors";
 import Logger from "@server/logging/Logger";
 import auth from "@server/middlewares/authentication";
@@ -36,17 +37,24 @@ Read images and attachments with the "fetch" tool by setting resource to "attach
  * scopes granted to the current token.
  *
  * @param scopes - the OAuth scopes granted to the access token.
+ * @param hostname - the deployment's hostname, included in serverInfo.name so
+ * that clients connecting to multiple Outline instances can tell them apart
+ * rather than treating identical server names as the same connection.
  * @param guidance - optional workspace guidance to append to default instructions.
  * @returns a configured McpServer ready to be connected to a transport.
  */
-function createMcpServer(scopes: string[], guidance?: string): McpServer {
+function createMcpServer(
+  scopes: string[],
+  hostname: string,
+  guidance?: string
+): McpServer {
   const instructions = guidance
     ? `${defaultInstructions}\n\n${guidance}`
     : defaultInstructions;
 
   const server = new McpServer(
     {
-      name: "outline",
+      name: `outline-${hostname}`,
       version,
     },
     {
@@ -87,8 +95,16 @@ router.post(
     user.setFlag(UserFlag.MCP);
     await user.save({ hooks: false });
 
+    // Use the configured URL for self-hosted deployments to preserve the port when behind
+    // a reverse proxy that may strip the port from the Host header.
+    const origin = env.isCloudHosted
+      ? ctx.request.URL.origin
+      : new URL(env.URL).origin;
+    const hostname = new URL(origin).hostname;
+
     const server = createMcpServer(
       scope ?? [],
+      hostname,
       user.team.guidanceMCP ?? undefined
     );
     const transport = new StreamableHTTPServerTransport({
