@@ -131,7 +131,9 @@ describe("POST /mcp/", () => {
 
       expect(result).toBeDefined();
       expect(result?.capabilities).toBeDefined();
-      expect(result?.serverInfo?.name).toEqual("outline");
+      // Includes the deployment's hostname so that clients connecting to
+      // multiple Outline instances can tell them apart.
+      expect(result?.serverInfo?.name).toEqual("outline-localhost");
       expect(result?.serverInfo?.title).toEqual("Outline");
       expect(result?.serverInfo?.websiteUrl).toMatch(/^https?:\/\//);
       expect(result?.serverInfo?.icons).toEqual([
