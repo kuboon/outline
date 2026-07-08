@@ -6,7 +6,7 @@ runs:
     - name: Install pinned Corepack
       shell: bash
       env:
-        # Node 24.16.0 ships with a corepack whose hardcoded trusted-keys
+        # Some Node releases ship a corepack whose hardcoded trusted-keys
         # list predates the yarn 4.x signing key rotation, so its
         # integrity check rejects the cached yarn binary and the shim
         # ends up returning blank. Replace it with a known corepack
@@ -33,10 +33,10 @@ runs:
         # Warm the corepack shim so setup-node's cache-folder probe sees a
         # valid version.
         yarn --version
-    - name: Use Node.js 24.x
+    - name: Use Node.js 26.x
       uses: actions/setup-node@v5
       with:
-        node-version: 24.x
+        node-version: 26.x
         cache: "yarn"
     - name: Install dependencies
       shell: bash

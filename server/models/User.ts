@@ -144,7 +144,7 @@ class User extends ParanoidModel<
     max: UserValidation.maxEmailLength,
     msg: `User email must be between 1 and ${UserValidation.maxEmailLength} characters`,
   })
-  @Column
+  @Column(DataType.STRING)
   email: string | null;
 
   @NotContainsUrl
@@ -153,7 +153,7 @@ class User extends ParanoidModel<
     max: UserValidation.maxNameLength,
     msg: `User name must be between 1 and ${UserValidation.maxNameLength} characters`,
   })
-  @Column
+  @Column(DataType.STRING)
   name: string;
 
   @Default(UserRole.Member)
@@ -165,7 +165,7 @@ class User extends ParanoidModel<
   jwtSecret: string;
 
   @IsDate
-  @Column
+  @Column(DataType.DATE)
   @SkipChangeset
   lastActiveAt: Date | null;
 
@@ -181,7 +181,7 @@ class User extends ParanoidModel<
   }
 
   @IsDate
-  @Column
+  @Column(DataType.DATE)
   @SkipChangeset
   lastSignedInAt: Date | null;
 
@@ -197,12 +197,12 @@ class User extends ParanoidModel<
   }
 
   @IsDate
-  @Column
+  @Column(DataType.DATE)
   @SkipChangeset
   lastSigninEmailSentAt: Date | null;
 
   @IsDate
-  @Column
+  @Column(DataType.DATE)
   suspendedAt: Date | null;
 
   @Column(DataType.JSONB)
@@ -963,7 +963,11 @@ class User extends ParanoidModel<
     }
   };
 
-  static findByEmail = async function (ctx: APIContext, email: string) {
+  static findByEmail = async function (
+    this: typeof User,
+    ctx: APIContext,
+    email: string
+  ) {
     return this.findOne({
       where: {
         teamId: ctx.state.auth.user.teamId,
@@ -973,7 +977,7 @@ class User extends ParanoidModel<
     });
   };
 
-  static getCounts = async function (teamId: string) {
+  static getCounts = async function (this: typeof User, teamId: string) {
     const countSql = `
       SELECT
         COUNT(CASE WHEN "suspendedAt" IS NOT NULL THEN 1 END) as "suspendedCount",
@@ -986,7 +990,14 @@ class User extends ParanoidModel<
       WHERE "deletedAt" IS NULL
       AND "teamId" = :teamId
     `;
-    const [results] = await this.sequelize.query(countSql, {
+    const [counts] = await this.sequelize!.query<{
+      activeCount: string;
+      adminCount: string;
+      invitedCount: string;
+      suspendedCount: string;
+      viewerCount: string;
+      count: string;
+    }>(countSql, {
       type: QueryTypes.SELECT,
       replacements: {
         teamId,
@@ -994,15 +1005,6 @@ class User extends ParanoidModel<
         roleViewer: UserRole.Viewer,
       },
     });
-
-    const counts: {
-      activeCount: string;
-      adminCount: string;
-      invitedCount: string;
-      suspendedCount: string;
-      viewerCount: string;
-      count: string;
-    } = results;
 
     return {
       active: parseInt(counts.activeCount),

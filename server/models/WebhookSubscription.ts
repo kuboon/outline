@@ -13,7 +13,6 @@ import {
   ForeignKey,
   NotEmpty,
   DataType,
-  IsUrl,
   BeforeCreate,
   AfterCreate,
   AfterUpdate,
@@ -33,6 +32,7 @@ import User from "./User";
 import ParanoidModel from "./base/ParanoidModel";
 import Encrypted from "./decorators/Encrypted";
 import Fix from "./decorators/Fix";
+import IsUrl from "./validators/IsUrl";
 import Length from "./validators/Length";
 import { randomString } from "@shared/random";
 
@@ -114,7 +114,7 @@ class WebhookSubscription extends ParanoidModel<
     max: WebhookSubscriptionValidation.maxNameLength,
     msg: `Webhook name must be ${WebhookSubscriptionValidation.maxNameLength} characters or less`,
   })
-  @Column
+  @Column(DataType.STRING)
   name: string;
 
   @IsUrl
@@ -123,10 +123,10 @@ class WebhookSubscription extends ParanoidModel<
     max: WebhookSubscriptionValidation.maxUrlLength,
     msg: `Webhook url must be ${WebhookSubscriptionValidation.maxUrlLength} characters or less`,
   })
-  @Column
+  @Column(DataType.STRING)
   url: string;
 
-  @Column
+  @Column(DataType.BOOLEAN)
   enabled: boolean;
 
   @Column(DataType.ARRAY(DataType.STRING))
@@ -143,14 +143,14 @@ class WebhookSubscription extends ParanoidModel<
   createdBy: User;
 
   @ForeignKey(() => User)
-  @Column
+  @Column(DataType.UUID)
   createdById: string;
 
   @BelongsTo(() => Team, "teamId")
   team: Team;
 
   @ForeignKey(() => Team)
-  @Column
+  @Column(DataType.UUID)
   teamId: string;
 
   // hooks

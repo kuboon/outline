@@ -209,7 +209,7 @@ class Collection extends ParanoidModel<
     msg: `urlId must be 10 characters`,
   })
   @Unique
-  @Column
+  @Column(DataType.STRING)
   urlId: string;
 
   @NotContainsUrl
@@ -217,7 +217,7 @@ class Collection extends ParanoidModel<
     max: CollectionValidation.maxNameLength,
     msg: `name must be ${CollectionValidation.maxNameLength} characters or less`,
   })
-  @Column
+  @Column(DataType.STRING)
   name: string;
 
   /**
@@ -230,7 +230,7 @@ class Collection extends ParanoidModel<
     max: CollectionValidation.maxDescriptionLength,
     msg: `description must be ${CollectionValidation.maxDescriptionLength} characters or less`,
   })
-  @Column
+  @Column(DataType.STRING)
   description: string | null;
 
   /**
@@ -240,19 +240,19 @@ class Collection extends ParanoidModel<
   content: ProsemirrorData | null;
 
   /** An icon (or) emoji to use as the collection icon. */
-  @Column
+  @Column(DataType.STRING)
   icon: string | null;
 
   /** The color of the icon. */
   @IsHexColor
-  @Column
+  @Column(DataType.STRING)
   color: string | null;
 
   @Length({
     max: ValidateIndex.maxLength,
     msg: `index must be ${ValidateIndex.maxLength} characters or less`,
   })
-  @Column
+  @Column(DataType.STRING)
   index: string | null;
 
   @IsIn([Object.values(CollectionPermission)])
@@ -260,7 +260,7 @@ class Collection extends ParanoidModel<
   permission: CollectionPermission | null;
 
   @Default(false)
-  @Column
+  @Column(DataType.BOOLEAN)
   maintainerApprovalRequired: boolean;
 
   @Default(null)
@@ -268,7 +268,7 @@ class Collection extends ParanoidModel<
   documentStructure: NavigationNode[] | null;
 
   @Default(true)
-  @Column
+  @Column(DataType.BOOLEAN)
   sharing: boolean;
 
   @Default({ field: "title", direction: "asc" })
@@ -299,7 +299,7 @@ class Collection extends ParanoidModel<
 
   /** Whether the collection is archived, and if so when. */
   @IsDate
-  @Column
+  @Column(DataType.DATE)
   archivedAt: Date | null;
 
   /** The minimum permission level required to manage templates in this collection. */
@@ -855,7 +855,7 @@ class Collection extends ParanoidModel<
     return this;
   };
 
-  deleteDocument = async function (document: Document, options?: FindOptions) {
+  deleteDocument = async (document: Document, options?: FindOptions) => {
     await this.removeDocumentInStructure(document, options);
 
     // Helper to destroy all child documents for a document
@@ -879,12 +879,12 @@ class Collection extends ParanoidModel<
     await document.destroy(options);
   };
 
-  removeDocumentInStructure = async function (
+  removeDocumentInStructure = async (
     document: Document,
     options?: FindOptions & {
       save?: boolean;
     }
-  ) {
+  ) => {
     if (!this.documentStructure) {
       return;
     }
@@ -942,7 +942,7 @@ class Collection extends ParanoidModel<
     return result;
   };
 
-  getDocumentParents = function (documentId: string): string[] | void {
+  getDocumentParents = (documentId: string): string[] | void => {
     let result!: string[];
 
     const loopChildren = (documents: NavigationNode[], path: string[] = []) => {
@@ -969,10 +969,10 @@ class Collection extends ParanoidModel<
   /**
    * Update document's title and url in the documentStructure
    */
-  updateDocument = async function (
+  updateDocument = async (
     updatedDocument: Document,
     options?: { transaction?: Transaction | null | undefined }
-  ) {
+  ) => {
     if (!this.documentStructure) {
       return;
     }
@@ -1007,7 +1007,7 @@ class Collection extends ParanoidModel<
     return this;
   };
 
-  addDocumentToStructure = async function (
+  addDocumentToStructure = async (
     document: Document,
     index?: number,
     options: FindOptions & {
@@ -1017,7 +1017,7 @@ class Collection extends ParanoidModel<
       includeArchived?: boolean;
       insertOrder?: "prepend" | "append";
     } = {}
-  ) {
+  ) => {
     if (!this.documentStructure) {
       this.documentStructure = [];
     }
