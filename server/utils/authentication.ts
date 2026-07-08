@@ -2,6 +2,7 @@ import querystring from "node:querystring";
 import { addMonths } from "date-fns";
 import type { Context } from "koa";
 import { pick } from "es-toolkit/compat";
+import { toError } from "@shared/utils/error";
 import { Client } from "@shared/types";
 import { getCookieDomain } from "@shared/utils/domains";
 import env from "@server/env";
@@ -28,6 +29,14 @@ export function getSessionsInCookie(ctx: Context) {
   }
 }
 
+/**
+ * Signs in a user by setting authentication cookies and recording the sign-in
+ * event, then redirects to the appropriate destination.
+ *
+ * @param ctx the Koa context.
+ * @param service the name of the authentication service used to sign in.
+ * @param result the authentication result containing user and team details.
+ */
 export async function signIn(
   ctx: Context | APIContext,
   service: string,
@@ -62,7 +71,7 @@ export async function signIn(
           }
         );
       } catch (error) {
-        Logger.error(`Error persisting signup query params`, error);
+        Logger.error(`Error persisting signup query params`, toError(error));
       }
     }
   }

@@ -8,6 +8,7 @@ import type { Transaction } from "prosemirror-state";
 import { NodeSelection, Plugin, PluginKey } from "prosemirror-state";
 import { Decoration, DecorationSet } from "prosemirror-view";
 import { toast } from "sonner";
+import { errToString } from "../../utils/error";
 import { isCode, isMermaid } from "../lib/isCode";
 import { isRemoteTransaction, mapDecorations } from "../lib/multiplayer";
 import { findBlockNodes } from "../queries/findChildren";
@@ -17,6 +18,7 @@ import type { Editor } from "../../../app/editor";
 import { LightboxImageFactory } from "../lib/Lightbox";
 import { hashString } from "../../utils/string";
 import { sanitizeUrl } from "../../utils/urls";
+import { isModKey } from "../../utils/keyboard";
 
 export const pluginKey = new PluginKey("mermaid");
 
@@ -262,7 +264,7 @@ class MermaidRenderer {
         element.innerText = "Empty diagram";
         element.classList.add("empty");
       } else {
-        element.innerText = error;
+        element.innerText = errToString(error);
         element.classList.add("parse-error");
       }
     } finally {
@@ -522,7 +524,7 @@ export default function Mermaid({
         return this.getState(state)?.decorationSet;
       },
       handleKeyDown(view, event) {
-        if (event.key === "Enter" && event.metaKey && !editor.props.readOnly) {
+        if (event.key === "Enter" && isModKey(event) && !editor.props.readOnly) {
           const { selection } = view.state;
           const isNodeSel = selection instanceof NodeSelection;
           const isMermaidNode =

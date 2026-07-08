@@ -1,5 +1,6 @@
 /* oxlint-disable @typescript-eslint/no-misused-promises */
 /* oxlint-disable import/order */
+import { toError } from "@shared/utils/error";
 import env from "./env";
 
 import "./logging/tracer"; // must come before importing any instrumented module
@@ -54,7 +55,7 @@ async function master() {
 
   if (env.TELEMETRY && env.isProduction) {
     void checkUpdates();
-    setInterval(checkUpdates, 24 * 3600 * 1000);
+    setInterval(checkUpdates, 24 * 3600 * 1000).unref();
   }
 }
 
@@ -159,7 +160,7 @@ async function start(_id: number, disconnect: () => void) {
     try {
       await sequelize.query("SELECT 1");
     } catch (err) {
-      Logger.error("Database connection failed", err);
+      Logger.error("Database connection failed", toError(err));
       ctx.status = 500;
       return;
     }
@@ -167,7 +168,7 @@ async function start(_id: number, disconnect: () => void) {
     try {
       await Redis.defaultClient.ping();
     } catch (err) {
-      Logger.error("Redis ping failed", err);
+      Logger.error("Redis ping failed", toError(err));
       ctx.status = 500;
       return;
     }

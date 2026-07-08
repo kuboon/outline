@@ -5,6 +5,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
 import { ErrorCode } from "@modelcontextprotocol/sdk/types.js";
+import { toError } from "@shared/utils/error";
 import { TeamPreference } from "@shared/types";
 import env from "@server/env";
 import { NotFoundError } from "@server/errors";
@@ -20,17 +21,51 @@ import { collectionTools } from "@server/tools/collections";
 import { commentTools } from "@server/tools/comments";
 import { documentTools } from "@server/tools/documents";
 import { fetchTool } from "@server/tools/fetch";
+import { templateTools } from "@server/tools/templates";
 import { userTools } from "@server/tools/users";
 import { version } from "../../../package.json";
 
 const app = new Koa();
 const router = new Router();
 
+// RFC 9728 / MCP auth spec: 401 responses from the /mcp endpoint must include
+// a WWW-Authenticate header pointing at the OAuth protected resource metadata
+// document so clients can bootstrap the authorization flow via discovery.
+app.use(async (ctx, next) => {
+  try {
+    await next();
+  } catch (err: unknown) {
+    if (
+      typeof err === "object" &&
+      err !== null &&
+      (err as { status?: number }).status === 401
+    ) {
+      const headersHost = err as { headers?: Record<string, string> };
+      const existingHeaders = headersHost.headers ?? {};
+      const hasWwwAuth = Object.keys(existingHeaders).some(
+        (k) => k.toLowerCase() === "www-authenticate"
+      );
+      if (!hasWwwAuth) {
+        const origin = env.isCloudHosted
+          ? ctx.request.URL.origin
+          : new URL(env.URL).origin;
+        headersHost.headers = {
+          ...existingHeaders,
+          "WWW-Authenticate": `Bearer resource_metadata="${origin}/.well-known/oauth-protected-resource/mcp"`,
+        };
+      }
+    }
+    throw err;
+  }
+});
+
 const defaultInstructions = `Document markdown content must not begin with a top-level heading (H1) — the title is stored as a separate field, so set it via the title parameter and start the content with body text or a lower-level heading instead.
 
 Document and collection markdown support @mentions using the syntax: @[Display Name](mention://user/userId). For example: @[John Doe](mention://user/c9a1b2e3-...). Use the "list_users" tool to find user IDs.
 
-Read images and attachments with the "fetch" tool by setting resource to "attachment" and passing either the attachment ID or an /api/attachments.redirect?id=... URL; the tool will return a signed URL for download.`;
+Read images and attachments with the "fetch" tool by setting resource to "attachment" and passing either the attachment ID or an /api/attachments.redirect?id=... URL; the tool will return a signed URL for download.
+
+When asked to create a document that follows a template, use the "list_templates" tool to find a matching template; each result already includes the template body as markdown. To use it unchanged, pass its ID as templateId to "create_document" and the new document is pre-filled from it. To adapt it first, modify the returned body and pass the result as the text parameter to "create_document". Either way no separate fetch is needed.`;
 
 /**
  * Creates a fresh MCP server instance with tools filtered by the OAuth
@@ -70,6 +105,7 @@ function createMcpServer(
   commentTools(server, scopes);
   documentTools(server, scopes);
   fetchTool(server, scopes);
+  templateTools(server, scopes);
   userTools(server, scopes);
 
   return server;
@@ -138,7 +174,7 @@ router.post(
     } catch (error) {
       Logger.error(
         "MCP request handling failed",
-        error instanceof Error ? error : new Error(String(error)),
+        toError(error),
         undefined,
         ctx.req
       );

@@ -1,5 +1,5 @@
 ARG APP_PATH=/opt/outline
-FROM node:24.16.0 AS deps
+FROM node:26.3.0 AS deps
 
 ARG APP_PATH
 WORKDIR $APP_PATH
@@ -9,10 +9,10 @@ COPY ./patches ./patches
 RUN apt-get update && apt-get install -y cmake
 ENV NODE_OPTIONS="--max-old-space-size=24000"
 
-# Node 24.16.0's bundled corepack predates the yarn 4.x signing key
-# rotation, so its integrity check silently rejects the downloaded yarn
-# binary and the shim returns blank. Install a newer corepack pinned by
-# tarball SRI before enabling.
+# Some Node releases ship a bundled corepack whose trusted-keys list
+# predates the yarn 4.x signing key rotation, so its integrity check
+# silently rejects the downloaded yarn binary and the shim returns
+# blank. Install a newer corepack pinned by tarball SRI before enabling.
 ARG COREPACK_VERSION=0.35.0
 ARG COREPACK_INTEGRITY=sha512-9BuIGHDFE7Zieor1CeRsvt7X7AJFEuJ6OnbSbsVprq83ChDFoBh1wP98NeUS9FT3ZwlzFllPElXcz/OiDf0YGw==
 RUN set -eux; \
