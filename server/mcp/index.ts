@@ -15,7 +15,10 @@ import { version } from "../../package.json";
  * Creates a fresh MCP server instance with tools filtered by the OAuth
  * scopes granted to the current token.
  *
- * @param origin - the origin of this deployment, used for absolute asset URLs.
+ * @param origin - the origin of this deployment, used for absolute asset URLs
+ * and to derive the hostname included in serverInfo.name so that clients
+ * connecting to multiple Outline instances can tell them apart rather than
+ * treating identical server names as the same connection.
  * @param scopes - the OAuth scopes granted to the access token.
  * @param guidance - optional workspace guidance to append to default instructions.
  * @returns a configured McpServer ready to be connected to a transport.
@@ -29,9 +32,11 @@ export function createMcpServer(
     ? `${defaultInstructions}\n\n${guidance}`
     : defaultInstructions;
 
+  const hostname = new URL(origin).hostname;
+
   const server = new McpServer(
     {
-      name: "outline",
+      name: `outline-${hostname}`,
       title: "Outline",
       version,
       websiteUrl: origin,

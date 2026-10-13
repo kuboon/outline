@@ -103,6 +103,12 @@ router.post(
       });
     }
 
+    // Non-admins may only see users that share at least one group with them.
+    const visibleIds = await actor.visibleUserIds();
+    if (visibleIds) {
+      where[Op.and].push({ id: { [Op.in]: visibleIds } });
+    }
+
     const replacements = { query: QueryHelper.likeContains(query ?? "") };
 
     const [users, total] = await Promise.all([

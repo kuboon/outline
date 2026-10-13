@@ -1,4 +1,5 @@
 import {
+  buildAdmin,
   buildGroup,
   buildGroupUser,
   buildGuestUser,
@@ -10,7 +11,8 @@ const server = getTestServer();
 
 describe("#suggestions.mention", () => {
   it("should return users and groups in the team", async () => {
-    const user = await buildUser();
+    // Non-admins only see users they share a group with, so use an admin here.
+    const user = await buildAdmin();
     const other = await buildUser({ teamId: user.teamId, name: "Elizabeth" });
     const group = await buildGroup({ teamId: user.teamId, name: "Elephants" });
 
@@ -27,7 +29,8 @@ describe("#suggestions.mention", () => {
   });
 
   it("should return users in the same group first", async () => {
-    const user = await buildUser();
+    // Non-admins only see users they share a group with, so use an admin here.
+    const user = await buildAdmin();
     const other = await buildUser({ teamId: user.teamId, name: "Anna" });
     const teammate = await buildUser({ teamId: user.teamId, name: "Zoe" });
     const group = await buildGroup({ teamId: user.teamId });
