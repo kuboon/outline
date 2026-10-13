@@ -75,6 +75,7 @@ describe("#users.list", () => {
   it("should not return the inviting user for non-admins", async () => {
     const invite = await buildInvite();
     const user = await buildUser({ teamId: invite.teamId });
+    await shareGroup(user, invite);
 
     const res = await server.post("/api/users.list", user, {
       body: { filter: "all" },
@@ -407,6 +408,7 @@ describe("#users.list filters", () => {
   it("should filter by role", async () => {
     const user = await buildUser({ name: "Tester" });
     const admin = await buildAdmin({ name: "Admin", teamId: user.teamId });
+    await shareGroup(user, admin);
 
     const res = await server.post("/api/users.list", user, {
       body: {
@@ -512,6 +514,7 @@ describe("#users.list filters", () => {
   it("should filter to invited users", async () => {
     const user = await buildUser({ name: "Tester" });
     const invite = await buildInvite({ name: "Tester", teamId: user.teamId });
+    await shareGroup(user, invite);
 
     const res = await server.post("/api/users.list", user, {
       body: {
